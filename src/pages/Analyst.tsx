@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { File, ArrowUp, Bot, User, Upload } from "lucide-react";
+import { File, ArrowUp, Bot, User, Upload, Key, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,12 +22,15 @@ const Analyst = () => {
     {
       id: '1',
       type: 'bot',
-      content: "Hello! I'm your Gaming AI Analyst. I can help you understand gaming data, trends, and analyze any PDF documents you upload. What would you like to explore today?",
+      content: "Hello! I'm your Gaming AI Analyst powered by ChatGPT. Please enter your OpenAI API key to get started, then I can help you understand gaming data, trends, and analyze any PDF documents you upload.",
       timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const sampleQuestions = [
@@ -38,7 +41,61 @@ const Analyst = () => {
     "Analyze the genre distribution data"
   ];
 
-  const handleSendMessage = () => {
+  const callOpenAI = async (userMessage: string): Promise<string> => {
+    if (!apiKey) {
+      return "Please enter your OpenAI API key first to connect with ChatGPT.";
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a Gaming AI Analyst expert. You have access to gaming data showing:
+              
+              Top PC Games Data:
+              1. Counter-Strike 2: 1,247 hours average playtime, 95/100 rating, 1.5M players, FPS genre
+              2. Dota 2: 1,156 hours average playtime, 92/100 rating, 850K players, Strategy genre  
+              3. Baldur's Gate 3: 743 hours average playtime, 96/100 rating, 650K players, RPG genre
+              4. Team Fortress 2: 892 hours average playtime, 89/100 rating, 420K players, FPS genre
+              5. Warframe: 567 hours average playtime, 87/100 rating, 380K players, FPS genre
+              6. Terraria: 445 hours average playtime, 94/100 rating, 320K players, Indie genre
+              
+              Genre Distribution: FPS (35%), RPG (28%), Strategy (18%), Indie (12%), Other (7%)
+              
+              Provide detailed, insightful analysis about gaming trends, game comparisons, and recommendations. Be enthusiastic about gaming while providing data-driven insights.`
+            },
+            {
+              role: 'user',
+              content: userMessage
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to get response from ChatGPT');
+      }
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+    } catch (error) {
+      console.error('OpenAI API Error:', error);
+      return `Error connecting to ChatGPT: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key and try again.`;
+    }
+  };
+
+  const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
@@ -50,43 +107,28 @@ const Analyst = () => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const botResponse: Message = {
+    try {
+      const botResponse = await callOpenAI(inputMessage);
+      const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: generateAIResponse(inputMessage),
+        content: botResponse,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
-  };
-
-  const generateAIResponse = (question: string): string => {
-    const lowerQuestion = question.toLowerCase();
-    
-    if (lowerQuestion.includes('counter-strike') || lowerQuestion.includes('csgo')) {
-      return "Counter-Strike 2 leads with 1,247 hours average playtime and a 95/100 rating. Its success comes from competitive gameplay, regular updates, and a massive esports scene. The game has 1.5M active players, making it the most popular FPS on PC.";
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: 'Sorry, there was an error processing your request. Please try again.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (lowerQuestion.includes('baldur') || lowerQuestion.includes('gate')) {
-      return "Baldur's Gate 3 has the highest rating at 96/100 despite 'only' 743 hours average playtime. Its success is due to exceptional storytelling, turn-based combat, and unprecedented player choice freedom. It represents the gold standard for modern RPGs.";
-    }
-    
-    if (lowerQuestion.includes('trend') || lowerQuestion.includes('gaming')) {
-      return "Key PC gaming trends: 1) FPS games dominate (35% market share), 2) RPGs are growing rapidly (28%), 3) Competitive multiplayer games have longest retention, 4) Story-driven single-player games achieve highest ratings, 5) Indie games are gaining significant traction (12% share).";
-    }
-    
-    if (lowerQuestion.includes('genre') || lowerQuestion.includes('distribution')) {
-      return "Genre analysis shows FPS games lead at 35%, followed by RPGs at 28%. Strategy games hold 18%, while Indie games are surprisingly strong at 12%. This distribution reflects player preference for competitive gameplay and immersive storytelling.";
-    }
-    
-    if (lowerQuestion.includes('compare') || lowerQuestion.includes('vs')) {
-      return "Counter-Strike 2 vs Dota 2 comparison: CS2 has higher playtime (1,247h vs 1,156h) and more players (1.5M vs 850K), but similar ratings (95 vs 92). CS2's accessibility gives it broader appeal, while Dota 2 maintains a dedicated hardcore audience. Both show upward trends.";
-    }
-    
-    return `Based on the gaming data analysis, here are key insights about "${question}": The data shows strong performance metrics across all major titles, with FPS and RPG games leading player engagement. Counter-Strike 2 and Baldur's Gate 3 represent excellent examples of their respective genres' success factors.`;
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +159,23 @@ const Analyst = () => {
 
   const handleSampleQuestion = (question: string) => {
     setInputMessage(question);
+  };
+
+  const handleApiKeySubmit = () => {
+    if (apiKey.trim()) {
+      toast({
+        title: "API Key Set",
+        description: "ChatGPT connection established successfully!",
+      });
+      
+      const welcomeMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: "Great! I'm now connected to ChatGPT and ready to provide detailed gaming analysis. What would you like to explore about the gaming data?",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, welcomeMessage]);
+    }
   };
 
   return (
@@ -150,6 +209,54 @@ const Analyst = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* API Key Setup */}
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Key className="w-5 h-5 mr-2 text-yellow-400" />
+                  ChatGPT Connection
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Enter your OpenAI API key to connect
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Input
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="sk-..."
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 text-slate-400 hover:text-white"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <Button 
+                    onClick={handleApiKeySubmit}
+                    className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700"
+                    disabled={!apiKey.trim()}
+                  >
+                    Connect to ChatGPT
+                  </Button>
+                  {apiKey && (
+                    <div className="flex items-center p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <Key className="w-4 h-4 text-green-400 mr-2" />
+                      <span className="text-green-300 text-sm">API Key Set</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* PDF Upload */}
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
@@ -224,6 +331,7 @@ const Analyst = () => {
                 <CardTitle className="text-white flex items-center">
                   <Bot className="w-5 h-5 mr-2 text-purple-400" />
                   AI Gaming Analyst
+                  {apiKey && <Badge className="ml-2 bg-green-600">ChatGPT Connected</Badge>}
                 </CardTitle>
                 <CardDescription className="text-slate-400">
                   Ask questions about gaming data and uploaded documents
@@ -256,7 +364,7 @@ const Analyst = () => {
                           ? 'bg-purple-600 text-white'
                           : 'bg-slate-700 text-slate-100'
                       }`}>
-                        <p className="text-sm">{message.content}</p>
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                         <p className={`text-xs mt-1 ${
                           message.type === 'user' ? 'text-purple-200' : 'text-slate-400'
                         }`}>
@@ -266,6 +374,18 @@ const Analyst = () => {
                     </div>
                   </div>
                 ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="flex items-start space-x-2 max-w-[80%]">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700">
+                        <Bot className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div className="bg-slate-700 text-slate-100 rounded-lg p-3">
+                        <p className="text-sm">Thinking...</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
               
               <Separator className="bg-slate-600" />
@@ -285,11 +405,12 @@ const Analyst = () => {
                     }}
                     className="flex-1 bg-slate-700 border-slate-600 text-white placeholder-slate-400 resize-none"
                     rows={1}
+                    disabled={isLoading}
                   />
                   <Button
                     onClick={handleSendMessage}
                     className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700"
-                    disabled={!inputMessage.trim()}
+                    disabled={!inputMessage.trim() || isLoading}
                   >
                     <ArrowUp className="w-4 h-4" />
                   </Button>
