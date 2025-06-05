@@ -19,8 +19,11 @@ serve(async (req) => {
     const { message, messages } = await req.json();
 
     if (!openAIApiKey) {
+      console.error('OpenAI API key not configured');
       throw new Error('OpenAI API key not configured');
     }
+
+    console.log('OpenAI API key status:', openAIApiKey ? 'Present' : 'Missing');
 
     // Prepare the messages array for OpenAI
     const openAIMessages = [
