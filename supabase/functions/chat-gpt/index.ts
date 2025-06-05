@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, messages } = await req.json();
+    const { message, messages, pdfContext } = await req.json();
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not configured');
@@ -24,12 +24,10 @@ serve(async (req) => {
     }
 
     console.log('OpenAI API key status:', openAIApiKey ? 'Present' : 'Missing');
+    console.log('PDF context status:', pdfContext ? `Present (${pdfContext.length} characters)` : 'Not provided');
 
-    // Prepare the messages array for OpenAI
-    const openAIMessages = [
-      {
-        role: 'system',
-        content: `You are a Gaming AI Analyst expert. You have access to gaming data showing:
+    // Prepare the system message with gaming data and PDF context
+    let systemContent = `You are a Gaming AI Analyst expert. You have access to gaming data showing:
         
         Top PC Games Data:
         1. Counter-Strike 2: 1,247 hours average playtime, 95/100 rating, 1.5M players, FPS genre
@@ -41,7 +39,18 @@ serve(async (req) => {
         
         Genre Distribution: FPS (35%), RPG (28%), Strategy (18%), Indie (12%), Other (7%)
         
-        Provide detailed, insightful analysis about gaming trends, game comparisons, and recommendations. Be enthusiastic about gaming while providing data-driven insights.`
+        Provide detailed, insightful analysis about gaming trends, game comparisons, and recommendations. Be enthusiastic about gaming while providing data-driven insights.`;
+
+    // Add PDF context if available
+    if (pdfContext && pdfContext.trim()) {
+      systemContent += `\n\nAdditionally, the user has uploaded a PDF document with the following content that you should reference when answering questions about the document:\n\n${pdfContext.substring(0, 8000)}`; // Limit to prevent token overflow
+    }
+
+    // Prepare the messages array for OpenAI
+    const openAIMessages = [
+      {
+        role: 'system',
+        content: systemContent
       }
     ];
 

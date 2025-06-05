@@ -23,6 +23,7 @@ const Analyst = () => {
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [pdfContext, setPdfContext] = useState<string>('');
 
   const handleSampleQuestion = (question: string) => {
     // Add the sample question as a user message
@@ -69,7 +70,11 @@ const Analyst = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sidebar */}
           <div className="space-y-6">
-            <PdfUploadSection setMessages={setMessages} />
+            <PdfUploadSection 
+              setMessages={setMessages} 
+              setPdfContext={setPdfContext}
+              pdfContext={pdfContext}
+            />
 
             <SampleQuestions onQuestionSelect={handleSampleQuestion} />
           </div>
@@ -82,6 +87,7 @@ const Analyst = () => {
               apiKey="" // No longer needed since we use edge function
               isLoading={isLoading}
               setIsLoading={setIsLoading}
+              pdfContext={pdfContext}
             />
           </div>
         </div>

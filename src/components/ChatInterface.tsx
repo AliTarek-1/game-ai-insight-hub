@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowUp, Bot, User } from "lucide-react";
+import { ArrowUp, Bot, User, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
@@ -21,9 +21,10 @@ interface ChatInterfaceProps {
   apiKey: string;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  pdfContext?: string;
 }
 
-const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading }: ChatInterfaceProps) => {
+const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading, pdfContext }: ChatInterfaceProps) => {
   const [inputMessage, setInputMessage] = useState('');
 
   const callChatGPTEdgeFunction = async (userMessage: string, messageHistory: Message[]): Promise<string> => {
@@ -33,7 +34,8 @@ const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading 
       const { data, error } = await supabase.functions.invoke('chat-gpt', {
         body: {
           message: userMessage,
-          messages: messageHistory.slice(-10) // Send last 10 messages for context
+          messages: messageHistory.slice(-10), // Send last 10 messages for context
+          pdfContext: pdfContext // Include PDF context if available
         }
       });
 
@@ -96,9 +98,15 @@ const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading 
           <Bot className="w-5 h-5 mr-2 text-purple-400" />
           AI Gaming Analyst
           <Badge className="ml-2 bg-green-600">ChatGPT Connected</Badge>
+          {pdfContext && (
+            <Badge className="ml-2 bg-blue-600 flex items-center">
+              <FileText className="w-3 h-3 mr-1" />
+              PDF Loaded
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription className="text-slate-400">
-          Ask questions about gaming data and uploaded documents
+          Ask questions about gaming data{pdfContext ? ', your uploaded PDF,' : ''} and get detailed analysis
         </CardDescription>
       </CardHeader>
       
@@ -158,7 +166,7 @@ const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading 
       <div className="p-4">
         <div className="flex space-x-2">
           <Textarea
-            placeholder="Ask about gaming data, trends, or your uploaded PDF..."
+            placeholder={`Ask about gaming data, trends${pdfContext ? ', or your uploaded PDF' : ''}...`}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={(e) => {
