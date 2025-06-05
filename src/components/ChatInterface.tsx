@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowUp, Bot, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -25,57 +26,30 @@ interface ChatInterfaceProps {
 const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading }: ChatInterfaceProps) => {
   const [inputMessage, setInputMessage] = useState('');
 
-  const callOpenAI = async (userMessage: string): Promise<string> => {
-    if (!apiKey) {
-      return "Please enter your OpenAI API key first to connect with ChatGPT.";
-    }
-
+  const callChatGPTEdgeFunction = async (userMessage: string, messageHistory: Message[]): Promise<string> => {
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a Gaming AI Analyst expert. You have access to gaming data showing:
-              
-              Top PC Games Data:
-              1. Counter-Strike 2: 1,247 hours average playtime, 95/100 rating, 1.5M players, FPS genre
-              2. Dota 2: 1,156 hours average playtime, 92/100 rating, 850K players, Strategy genre  
-              3. Baldur's Gate 3: 743 hours average playtime, 96/100 rating, 650K players, RPG genre
-              4. Team Fortress 2: 892 hours average playtime, 89/100 rating, 420K players, FPS genre
-              5. Warframe: 567 hours average playtime, 87/100 rating, 380K players, FPS genre
-              6. Terraria: 445 hours average playtime, 94/100 rating, 320K players, Indie genre
-              
-              Genre Distribution: FPS (35%), RPG (28%), Strategy (18%), Indie (12%), Other (7%)
-              
-              Provide detailed, insightful analysis about gaming trends, game comparisons, and recommendations. Be enthusiastic about gaming while providing data-driven insights.`
-            },
-            {
-              role: 'user',
-              content: userMessage
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+      console.log('Calling ChatGPT edge function...');
+      
+      const { data, error } = await supabase.functions.invoke('chat-gpt', {
+        body: {
+          message: userMessage,
+          messages: messageHistory.slice(-10) // Send last 10 messages for context
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to get response from ChatGPT');
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to get response from ChatGPT');
       }
 
-      const data = await response.json();
-      return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data?.response || 'Sorry, I could not generate a response.';
     } catch (error) {
-      console.error('OpenAI API Error:', error);
-      return `Error connecting to ChatGPT: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key and try again.`;
+      console.error('ChatGPT Edge Function Error:', error);
+      return `Error connecting to ChatGPT: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`;
     }
   };
 
@@ -94,7 +68,7 @@ const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading 
     setIsLoading(true);
 
     try {
-      const botResponse = await callOpenAI(inputMessage);
+      const botResponse = await callChatGPTEdgeFunction(inputMessage, messages);
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
@@ -121,7 +95,7 @@ const ChatInterface = ({ messages, setMessages, apiKey, isLoading, setIsLoading 
         <CardTitle className="text-white flex items-center">
           <Bot className="w-5 h-5 mr-2 text-purple-400" />
           AI Gaming Analyst
-          {apiKey && <Badge className="ml-2 bg-green-600">ChatGPT Connected</Badge>}
+          <Badge className="ml-2 bg-green-600">ChatGPT Connected</Badge>
         </CardTitle>
         <CardDescription className="text-slate-400">
           Ask questions about gaming data and uploaded documents

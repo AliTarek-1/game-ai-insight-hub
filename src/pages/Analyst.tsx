@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import ChatInterface from '@/components/ChatInterface';
-import ApiKeySection from '@/components/ApiKeySection';
 import PdfUploadSection from '@/components/PdfUploadSection';
 import SampleQuestions from '@/components/SampleQuestions';
 
@@ -19,16 +18,23 @@ const Analyst = () => {
     {
       id: '1',
       type: 'bot',
-      content: "Hello! I'm your Gaming AI Analyst powered by ChatGPT. Please enter your OpenAI API key to get started, then I can help you understand gaming data, trends, and analyze any PDF documents you upload.",
+      content: "Hello! I'm your Gaming AI Analyst powered by ChatGPT. I'm ready to help you understand gaming data, trends, and analyze any PDF documents you upload. What would you like to explore?",
       timestamp: new Date()
     }
   ]);
-  const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSampleQuestion = (question: string) => {
-    // This will be handled by the ChatInterface component
-    // We can pass this down or handle it here and update the input
+    // Add the sample question as a user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: question,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    
+    // The ChatInterface will handle sending this to the AI
     console.log('Sample question selected:', question);
   };
 
@@ -63,12 +69,6 @@ const Analyst = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sidebar */}
           <div className="space-y-6">
-            <ApiKeySection
-              apiKey={apiKey}
-              setApiKey={setApiKey}
-              setMessages={setMessages}
-            />
-
             <PdfUploadSection setMessages={setMessages} />
 
             <SampleQuestions onQuestionSelect={handleSampleQuestion} />
@@ -79,7 +79,7 @@ const Analyst = () => {
             <ChatInterface
               messages={messages}
               setMessages={setMessages}
-              apiKey={apiKey}
+              apiKey="" // No longer needed since we use edge function
               isLoading={isLoading}
               setIsLoading={setIsLoading}
             />
